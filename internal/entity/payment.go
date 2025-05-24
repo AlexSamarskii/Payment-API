@@ -10,10 +10,9 @@ const (
 	StatusFailed   PaymentStatus = "FAILED"
 	StatusRefunded PaymentStatus = "REFUNDED"
 	StatusComplete PaymentStatus = "COMPLETE"
-	CoreAccount                  = "4100118177295897"
+	CoreAccount    PaymentStatus = "4100118177295897"
 )
 
-// Payment Модель платежа
 type Payment struct {
 	ID         string        `json:"id" db:"id"`
 	FromUserID string        `json:"user_from_id" db:"from_user_id"`
@@ -23,4 +22,9 @@ type Payment struct {
 	Status     PaymentStatus `json:"status" db:"status"`
 	CreatedAt  time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time     `json:"updated_at" db:"updated_at"`
+}
+
+type PaymentDetails struct {
+	Amount   float64 `json:"amount" db:"amount"`
+	Currency string  `json:"currency" db:"currency"`
 }
