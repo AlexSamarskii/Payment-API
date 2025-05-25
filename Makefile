@@ -15,16 +15,16 @@ generate:
 	sqlc -f sqlc/sqlc.yml generate 
 
 up:
-	docker compose -f deployments/docker-compose.yml --env-file ${CONFIG_PATH} up -d
+	docker compose -f docker-compose.yml --env-file ${CONFIG_PATH} up -d
 
 stop:
-	docker compose -f deployments/docker-compose.yml --env-file ${CONFIG_PATH} stop
+	docker compose -f docker-compose.yml --env-file ${CONFIG_PATH} stop
 
 db-up:
-	docker compose -f deployments/docker-compose.yml --env-file ${CONFIG_PATH} up -d postgres
+	docker compose -f docker-compose.yml --env-file ${CONFIG_PATH} up -d postgres
 
 db-stop:
-	docker compose -f deployments/docker-compose.yml --env-file ${CONFIG_PATH} stop postgres
+	docker compose -f docker-compose.yml --env-file ${CONFIG_PATH} stop postgres
 
 db-sh:
 	docker exec -ti postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
