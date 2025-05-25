@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// PaymentDemon Структура демона для проверки счетов
 type PaymentDemon struct {
 	service       service.PaymentService
 	repo          repository.PaymentRepository
@@ -24,8 +23,7 @@ type PaymentDemon struct {
 	logger        *zap.Logger
 }
 
-// NewPaymentDemon Создание экземпляра демона
-func NewPaymentDemon(service service.PaymentService, repo repository.PaymentRepository, paymentClient *yoomoney.YooMoneyClient, paymentQueue *db.LockFreeQueue, logger *zap.Logger, authClient *clients.AuthClient) *PaymentDemon {
+func NewPaymentDemon(service service.PaymentService, repo repository.PaymentRepository, paymentClient *yoomoney.YooMoneyClient, paymentQueue *db.LockFreeQueue, logger *zap.Logger, authClient *auth.AuthClient) *PaymentDemon {
 	return &PaymentDemon{
 		service:       service,
 		paymentClient: paymentClient,

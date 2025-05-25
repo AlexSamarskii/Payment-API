@@ -9,7 +9,7 @@ import (
 	"paymentgo/internal/config"
 	log "paymentgo/utils/logger"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	pgxpool "github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"go.uber.org/zap"
@@ -20,7 +20,6 @@ func BuildPostgresDSN(cfg *config.Config) string {
 		cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.DB, cfg.Postgres.SSLMode)
 }
 
-// NewPostgres Подключение к постгрес
 func NewPostgres(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*pgxpool.Pool, error) {
 	dsn := BuildPostgresDSN(cfg)
 	poolConfig, err := pgxpool.ParseConfig(dsn)
@@ -44,7 +43,6 @@ func NewPostgres(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*
 	return pool, nil
 }
 
-// MigratePostgres миграции для постгрес
 func MigratePostgres(ctx context.Context, pool *pgxpool.Pool, logger *zap.Logger, migrations fs.FS) error {
 	goose.SetLogger(log.GooseZapLogger(logger))
 	goose.SetBaseFS(migrations)

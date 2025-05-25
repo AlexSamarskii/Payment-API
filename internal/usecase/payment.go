@@ -12,4 +12,5 @@ type Payment interface {
 	GetPaymentByID(ctx context.Context, paymentID string) (*entity.Payment, error)
 	GetPaymentHistory(ctx context.Context, userID string, page, limit int) ([]*entity.Payment, error)
 	UpdatePaymentStatus(ctx context.Context, paymentID string, status entity.PaymentStatus) error
+	GetActivePayments(ctx context.Context, userID string) ([]*entity.Payment, error)
 }

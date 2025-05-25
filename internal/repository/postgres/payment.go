@@ -123,7 +123,7 @@ func (pr *PaymentRepository) UpdatePaymentStatus(ctx context.Context, paymentID 
 }
 
 func (pr *PaymentRepository) GetPaymentHistory(ctx context.Context, userID string, page, limit int) ([]*entity.Payment, error) {
-	cacheKey := fmt.Sprintf("payment_history:%s:%d:%d", userID)
+	cacheKey := fmt.Sprintf("payment_history:%s:%d:%d", userID, page, limit)
 
 	cachedHistory, err := pr.redis.Get(ctx, cacheKey).Result()
 	if err == nil {

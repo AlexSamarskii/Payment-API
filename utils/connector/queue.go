@@ -6,7 +6,6 @@ import (
 	"unsafe"
 )
 
-// Queue асинхронная очередь
 type Queue interface {
 	Enqueue(element dto.Payment)
 	EnqueueList(data []dto.Payment)

@@ -4,9 +4,6 @@
 // - protoc             v3.12.4
 // source: proto/auth.proto
 
-// Прото контракт для микросервиса авторизации и аутентификации
-// Ответственный: Диор (@duskchancellor)
-
 package proto
 
 import (

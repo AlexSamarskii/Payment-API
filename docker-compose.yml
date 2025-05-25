@@ -1,8 +1,9 @@
 services:
   app:
     build:
-      context: ..
-      dockerfile: build/Dockerfile
+      context: .
+      dockerfile: deployments/Dockerfile
+    env_file: .env
     container_name: payment-app
     ports:
       - "${SERVER_PORT?}:${SERVER_PORT?}"

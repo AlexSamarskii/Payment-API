@@ -1,8 +1,9 @@
 package connector
 
 import (
+	"paymentgo/internal/config"
+
 	"github.com/go-redis/redis/v8"
-	"gitlab.crja72.ru/gospec/go8/payment/internal/config"
 	"go.uber.org/zap"
 )
 

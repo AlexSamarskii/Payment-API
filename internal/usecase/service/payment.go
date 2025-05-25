@@ -23,7 +23,7 @@ type PaymentService struct {
 }
 
 // NewPaymentService создание экземпляра сервиса
-func NewPaymentService(repo repository.PaymentRepository, logger *zap.Logger, converter *convert.ForexClient, paymentClient *clients.YooMoneyClient, paymentsQueue *db.LockFreeQueue) *PaymentService {
+func NewPaymentService(repo repository.PaymentRepository, logger *zap.Logger, converter *convert.ForexClient, paymentClient *yoomoney.YooMoneyClient, paymentsQueue *db.LockFreeQueue) *PaymentService {
 	return &PaymentService{
 		repo:          repo,
 		logger:        logger,
