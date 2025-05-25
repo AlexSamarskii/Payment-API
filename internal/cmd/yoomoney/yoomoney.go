@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.crja72.ru/gospec/go8/payment/internal/config"
-	"gitlab.crja72.ru/gospec/go8/payment/internal/models"
+	"paymentgo/internal/config"
+	dto "paymentgo/internal/entity"
 )
 
 type YooMoneyClient struct {
@@ -94,7 +94,7 @@ func (c *YooMoneyClient) CheckPaymentStatus(label string) (string, error) {
 	}
 }
 
-func (c *YooMoneyClient) CreateTransfer(payment *models.Payment, receiver string) (string, error) {
+func (c *YooMoneyClient) CreateTransfer(payment *dto.Payment, receiver string) (string, error) {
 	if payment == nil {
 		return "", fmt.Errorf("payment information is required")
 	}

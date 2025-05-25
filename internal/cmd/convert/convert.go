@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"gitlab.crja72.ru/gospec/go8/payment/internal/config"
+	"paymentgo/internal/config"
 )
 
 const baseURL = "https://api.fastforex.io/convert"

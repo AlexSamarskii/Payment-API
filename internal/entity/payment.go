@@ -10,7 +10,7 @@ const (
 	StatusFailed   PaymentStatus = "FAILED"
 	StatusRefunded PaymentStatus = "REFUNDED"
 	StatusComplete PaymentStatus = "COMPLETE"
-	CoreAccount    PaymentStatus = "4100118177295897"
+	CoreAccount                  = "4100118177295897"
 )
 
 type Payment struct {

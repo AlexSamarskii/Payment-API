@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure" // Import insecure package
 
-	pb "gitlab.crja72.ru/gospec/go8/payment/internal/payment-service/proto"
+	pb "paymentgo/internal/transport/grpc/proto"
 )
 
 type AuthClient struct {

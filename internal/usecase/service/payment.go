@@ -10,6 +10,7 @@ import (
 	convert "paymentgo/internal/cmd/convert"
 	yoomoney "paymentgo/internal/cmd/yoomoney"
 	dto "paymentgo/internal/entity"
+	db "paymentgo/utils/connector"
 )
 
 // PaymentService структура для сервиса
@@ -110,7 +111,7 @@ func (s *PaymentService) GetPayment(ctx context.Context, paymentID string) (stri
 func (s *PaymentService) CreatePayment(ctx context.Context, fromUserID, toUserID string, amount float64, currency string) (string, error) {
 	s.logger.Info("Creating payment", zap.String("user_id", fromUserID), zap.Float64("amount", amount), zap.String("currency", currency))
 
-	paymentID, err := s.repo.CreatePayment(ctx, fromUserID, toUserID, amount, currency)
+	paymentID, err := s.repo.CreatePayment(ctx, fromUserID, toUserID, currency, amount)
 	if err != nil {
 		s.logger.Error("Failed to create payment", zap.Error(err))
 		return "", err
@@ -134,7 +135,7 @@ func (s *PaymentService) RefundPayment(ctx context.Context, paymentID string) er
 		if err != nil {
 			return fmt.Errorf("error updating payment status: %w", err)
 		}
-		newPaymentID, err := s.repo.CreatePayment(ctx, payment.ToUserID, payment.FromUserID, payment.Amount, payment.Currency)
+		newPaymentID, err := s.repo.CreatePayment(ctx, payment.ToUserID, payment.FromUserID, payment.Currency, payment.Amount)
 		if err != nil {
 			s.logger.Error("Failed to create new payment", zap.String("payment_id", newPaymentID), zap.Error(err))
 			return fmt.Errorf("error creating payment: %w", err)
