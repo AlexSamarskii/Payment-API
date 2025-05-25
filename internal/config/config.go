@@ -8,7 +8,6 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
-// Config Общая конфигурация
 type Config struct {
 	Server   Server   `yaml:"server" env-prefix:"SERVER_"`
 	Postgres Postgres `yaml:"postgres" env-prefix:"POSTGRES_"`
@@ -17,12 +16,10 @@ type Config struct {
 	Yoomoney Yoomoney `yaml:"yoomoney" env-prefix:"YOOMONEY_"`
 }
 
-// Server конфигурация сервера
 type Server struct {
 	Port int `yaml:"Port" env:"PORT"`
 }
 
-// Postgres конфигурация бд
 type Postgres struct {
 	Host     string `yaml:"Host" env:"HOST"`
 	Port     int    `yaml:"Port" env:"PORT"`
@@ -32,24 +29,20 @@ type Postgres struct {
 	Password string `yaml:"Password" env:"PASSWORD"`
 }
 
-// Redis конфигурация редиски
 type Redis struct {
 	URL string `yaml:"URL" env:"URL"`
 }
 
-// Forex конфигурация форекса для api
 type Forex struct {
 	Key string `yaml:"Key" env:"KEY"`
 }
 
-// Yoomoney юмани для оплаты
 type Yoomoney struct {
 	Token    string `yaml:"Token" env:"TOKEN"`
 	ClientID string `yaml:"ClientID" env:"CLIENT_ID"`
 	Receiver int    `yaml:"Receiver" env:"RECEIVER"`
 }
 
-// LoadConfig загрузка конфигурации
 func LoadConfig() (*Config, error) {
 	configPath, exists := os.LookupEnv("CONFIG_PATH")
 	if !exists {
