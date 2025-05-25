@@ -5,6 +5,10 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+
+	dto "paymentgo/internal/entity"
+	"paymentgo/internal/transport/grpc/proto"
+	"paymentgo/internal/usecase/service"
 )
 
 type PaymentHandler struct {
@@ -64,7 +68,7 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *proto.RefundPay
 	}
 
 	return &proto.RefundPaymentResponse{
-		Status: string(models.StatusRefunded),
+		Status: string(dto.StatusRefunded),
 	}, nil
 }
 

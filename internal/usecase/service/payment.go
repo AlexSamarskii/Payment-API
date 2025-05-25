@@ -6,19 +6,23 @@ import (
 	"paymentgo/internal/repository"
 
 	"go.uber.org/zap"
+
+	convert "paymentgo/internal/cmd/convert"
+	yoomoney "paymentgo/internal/cmd/yoomoney"
+	dto "paymentgo/internal/entity"
 )
 
 // PaymentService структура для сервиса
 type PaymentService struct {
 	repo          repository.PaymentRepository
 	logger        *zap.Logger
-	converter     *clients.ForexClient
-	paymentClient *clients.YooMoneyClient
+	converter     *convert.ForexClient
+	paymentClient *yoomoney.YooMoneyClient
 	paymentsQueue *db.LockFreeQueue
 }
 
 // NewPaymentService создание экземпляра сервиса
-func NewPaymentService(repo repository.PaymentRepository, logger *zap.Logger, converter *clients.ForexClient, paymentClient *clients.YooMoneyClient, paymentsQueue *db.LockFreeQueue) *PaymentService {
+func NewPaymentService(repo repository.PaymentRepository, logger *zap.Logger, converter *convert.ForexClient, paymentClient *clients.YooMoneyClient, paymentsQueue *db.LockFreeQueue) *PaymentService {
 	return &PaymentService{
 		repo:          repo,
 		logger:        logger,
@@ -32,69 +36,68 @@ func NewPaymentService(repo repository.PaymentRepository, logger *zap.Logger, co
 func (s *PaymentService) GetPaymentLink(ctx context.Context, paymentID string) (string, error) {
 	s.logger.Info("Getting payment link", zap.String("payment_id", paymentID))
 
-	amount, currency, err := s.repo.GetPaymentDetails(ctx, paymentID) // получаем данные по оплате
+	amount, currency, err := s.repo.GetPaymentDetails(ctx, paymentID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get payment details: %w", err)
 	}
 
-	convertedAmount, err := s.converter.ConvertToRub(amount, currency) // конвертируем сумму в рубли
+	convertedAmount, err := s.converter.ConvertToRub(amount, currency)
 	if err != nil {
 		return "", fmt.Errorf("failed to convert amount: %w", err)
 	}
 
-	err = s.repo.UpdatePaymentStatus(ctx, paymentID, models.StatusPending) // если создали ссылку, то скоро оплата, меняем статус
+	err = s.repo.UpdatePaymentStatus(ctx, paymentID, dto.StatusPending)
 	if err != nil {
 		return "", fmt.Errorf("error changing payment status to pending: %w", err)
 	}
 
-	payment, err := s.repo.GetPaymentByID(ctx, paymentID) // получаем данные платежа
+	payment, err := s.repo.GetPaymentByID(ctx, paymentID)
 	if err != nil {
 		s.logger.Error("Failed to fetch payment by ID", zap.String("payment_id", paymentID), zap.Error(err))
 		return "", fmt.Errorf("error fetching payment: %w", err)
 	}
-	// создаем ссылку оплаты на основной счет банка
-	link, err := s.paymentClient.QuickPayment(models.CoreAccount, paymentID, "AC", convertedAmount, paymentID, paymentID, paymentID, "")
+
+	link, err := s.paymentClient.QuickPayment(dto.CoreAccount, paymentID, "AC", convertedAmount, paymentID, paymentID, paymentID, "")
 	if err != nil {
 		s.logger.Error("Failed to create payment link", zap.String("payment_id", paymentID), zap.Error(err))
 		return "", fmt.Errorf("error creating payment link: %w", err)
 	}
 
-	s.paymentsQueue.Enqueue(*payment) // добавляем платеж в очередь для проверки статуса и избежания проблем с оплатой
+	s.paymentsQueue.Enqueue(*payment)
 
 	return link, nil
 }
 
-// GetPayment получение оплаты (статуса)
 func (s *PaymentService) GetPayment(ctx context.Context, paymentID string) (string, error) {
 	s.logger.Info("Getting payment", zap.String("payment_id", paymentID))
 
-	status, err := s.paymentClient.CheckPaymentStatus(paymentID) // проверка статуса оплаты
+	status, err := s.paymentClient.CheckPaymentStatus(paymentID)
 	if err != nil {
 		s.logger.Error("Failed to check payment status", zap.String("payment_id", paymentID), zap.Error(err))
 		return "error", fmt.Errorf("error getting payment status: %w", err)
 	}
 
 	switch status {
-	case "success": // все хорошо и деньги получены
+	case "success":
 		payment, err := s.repo.GetPaymentByID(ctx, paymentID)
 		if err != nil {
 			return "error", fmt.Errorf("error fetching payment: %w", err)
 		}
-		if payment.Status != "COMPLETE" { // деньги получены и счет не закрыт
-			err := s.repo.UpdatePaymentStatus(ctx, paymentID, models.StatusSuccess)
+		if payment.Status != "COMPLETE" {
+			err := s.repo.UpdatePaymentStatus(ctx, paymentID, dto.StatusSuccess)
 			if err != nil {
 				return "error", fmt.Errorf("error changing payment status to success: %w", err)
 			}
 		} else {
-			return "complete", nil // деньги получены и счет закрыт
+			return "complete", nil
 		}
-	case "pending": // деньги не получены, но ждет оплаты
-		err := s.repo.UpdatePaymentStatus(ctx, paymentID, models.StatusPending)
+	case "pending":
+		err := s.repo.UpdatePaymentStatus(ctx, paymentID, dto.StatusPending)
 		if err != nil {
 			return "pending", nil
 		}
-	case "failed": // ошибка
-		err := s.repo.UpdatePaymentStatus(ctx, paymentID, models.StatusFailed)
+	case "failed":
+		err := s.repo.UpdatePaymentStatus(ctx, paymentID, dto.StatusFailed)
 		if err != nil {
 			return "error", fmt.Errorf("error changing payment status to failed: %w", err)
 		}
@@ -104,7 +107,6 @@ func (s *PaymentService) GetPayment(ctx context.Context, paymentID string) (stri
 	return status, nil
 }
 
-// CreatePayment создание счета оплаты
 func (s *PaymentService) CreatePayment(ctx context.Context, fromUserID, toUserID string, amount float64, currency string) (string, error) {
 	s.logger.Info("Creating payment", zap.String("user_id", fromUserID), zap.Float64("amount", amount), zap.String("currency", currency))
 
@@ -118,22 +120,20 @@ func (s *PaymentService) CreatePayment(ctx context.Context, fromUserID, toUserID
 	return paymentID, nil
 }
 
-// RefundPayment возврат средств
 func (s *PaymentService) RefundPayment(ctx context.Context, paymentID string) error {
 	s.logger.Info("Refunding payment", zap.String("payment_id", paymentID))
 
-	payment, err := s.repo.GetPaymentByID(ctx, paymentID) // получение данных о счете
+	payment, err := s.repo.GetPaymentByID(ctx, paymentID)
 	if err != nil {
 		s.logger.Error("Failed to get payment by ID", zap.String("payment_id", paymentID), zap.Error(err))
 		return fmt.Errorf("error fetching payment by ID: %w", err)
 	}
 
 	if payment.Status != "COMPLETE" {
-		err = s.repo.UpdatePaymentStatus(ctx, paymentID, "REFUNDED") // обновление статуса счета
+		err = s.repo.UpdatePaymentStatus(ctx, paymentID, "REFUNDED")
 		if err != nil {
 			return fmt.Errorf("error updating payment status: %w", err)
 		}
-		// создание счета с инвертированными получателями, чтобы счет банка не терял денег и все было легально
 		newPaymentID, err := s.repo.CreatePayment(ctx, payment.ToUserID, payment.FromUserID, payment.Amount, payment.Currency)
 		if err != nil {
 			s.logger.Error("Failed to create new payment", zap.String("payment_id", newPaymentID), zap.Error(err))
@@ -146,8 +146,7 @@ func (s *PaymentService) RefundPayment(ctx context.Context, paymentID string) er
 	return fmt.Errorf("payment has not been paid")
 }
 
-// GetPaymentByID получение данных о счете по номеру
-func (s *PaymentService) GetPaymentByID(ctx context.Context, paymentID string) (*models.Payment, error) {
+func (s *PaymentService) GetPaymentByID(ctx context.Context, paymentID string) (*dto.Payment, error) {
 	s.logger.Info("Getting payment by ID", zap.String("payment_id", paymentID))
 
 	payment, err := s.repo.GetPaymentByID(ctx, paymentID)
@@ -160,8 +159,7 @@ func (s *PaymentService) GetPaymentByID(ctx context.Context, paymentID string) (
 	return payment, nil
 }
 
-// GetPaymentHistory получение истории счетов пользователя
-func (s *PaymentService) GetPaymentHistory(ctx context.Context, userID string, page, limit int) ([]*models.Payment, error) {
+func (s *PaymentService) GetPaymentHistory(ctx context.Context, userID string, page, limit int) ([]*dto.Payment, error) {
 	s.logger.Info("Getting payment history", zap.String("user_id", userID), zap.Int("page", page), zap.Int("limit", limit))
 
 	payments, err := s.repo.GetPaymentHistory(ctx, userID, page, limit)
@@ -174,8 +172,7 @@ func (s *PaymentService) GetPaymentHistory(ctx context.Context, userID string, p
 	return payments, nil
 }
 
-// UpdatePaymentStatus обновление статуса счета
-func (s *PaymentService) UpdatePaymentStatus(ctx context.Context, paymentID string, status models.PaymentStatus) error {
+func (s *PaymentService) UpdatePaymentStatus(ctx context.Context, paymentID string, status dto.PaymentStatus) error {
 	s.logger.Info("Updating payment status", zap.String("payment_id", paymentID), zap.String("status", string(status)))
 
 	err := s.repo.UpdatePaymentStatus(ctx, paymentID, status)
@@ -189,7 +186,7 @@ func (s *PaymentService) UpdatePaymentStatus(ctx context.Context, paymentID stri
 }
 
 // GetActivePayments Получение активных счетов пользователя
-func (s *PaymentService) GetActivePayments(ctx context.Context, userID string) ([]*models.Payment, error) {
+func (s *PaymentService) GetActivePayments(ctx context.Context, userID string) ([]*dto.Payment, error) {
 	s.logger.Info("Getting active payments", zap.String("user_id", userID))
 
 	activePayments, err := s.repo.GetActivePayments(ctx, userID)
