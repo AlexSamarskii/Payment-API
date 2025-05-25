@@ -37,22 +37,23 @@
 ## 🧱 Архитектура
 
 Сервис построен по многослойной архитектуре:
+```text
 ┌───────────────────────┐
-│ API Layer │ (gRPC / HTTP handlers)
+│       API Layer       │  (gRPC / HTTP handlers)
 └───────────┬───────────┘
-│
+            │
 ┌───────────▼───────────┐
-│ Service Layer │ (Бизнес-логика)
+│    Service Layer       │  (Бизнес-логика)
 └───────────┬───────────┘
-│
+            │
 ┌───────────▼───────────┐
-│ Repository Layer │ (Работа с БД)
+│  Repository Layer      │  (Работа с БД)
 └───────────┬───────────┘
-│
+            │
 ┌───────────▼───────────┐
-│ External Integrations │ (YooMoney, FastForex)
+│ External Integrations  │  (YooMoney, FastForex)
 └───────────────────────┘
-
+```
 ---
 
 ## 🔑 Основные функции
