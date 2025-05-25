@@ -10,5 +10,5 @@ type PaymentRepository interface {
 	GetPaymentByID(ctx context.Context, paymentID string) (*entity.Payment, error)
 	GetPaymentHistory(ctx context.Context, userID string) ([]*entity.Payment, error)
 	GetPaymentDetails(ctx context.Context, paymentID string) (float64, string, error)
-	UpdatePaymentStatus(ctx context.Context, paymentID string, paymentStatus string) error
+	UpdatePaymentStatus(ctx context.Context, paymentID string, paymentStatus entity.PaymentStatus) error
 }
