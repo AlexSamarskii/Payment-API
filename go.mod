@@ -3,6 +3,7 @@ module paymentgo
 go 1.24.0
 
 require (
+	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/stretchr/testify v1.10.0
 	google.golang.org/protobuf v1.36.6
@@ -20,6 +21,7 @@ require (
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
