@@ -22,8 +22,10 @@ services:
       - YOOMONEY_CLIENT_ID=${YOOMONEY_CLIENT_ID?}
       - YOOMONEY_RECEIVER=${YOOMONEY_RECEIVER?}
     depends_on:
-      - redis
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - app-network
 
@@ -46,6 +48,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
 volumes:
   postgres_data:
