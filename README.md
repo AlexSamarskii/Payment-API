@@ -9,7 +9,7 @@
 
 ---
 
-## ⚙️ Технологический стек
+## Технологический стек
 
 **Язык:**  
 - Go 1.20+
@@ -34,7 +34,7 @@
 
 ---
 
-## 🧱 Архитектура
+## Архитектура
 
 Сервис построен по многослойной архитектуре:
 ```text
@@ -56,35 +56,78 @@
 ```
 ---
 
-## 🔑 Основные функции
+## Основные функции
 
-### 📲 Управление платежами
+### Управление платежами
 - Создание платежей  
 - Проверка статусов  
 - Возвраты  
 - История операций  
 
-### 💱 Конвертация валют
-- Поддержка 150+ валют  
-- Актуальные курсы в реальном времени  
+### Конвертация валют 
 - Кеширование данных  
 
-### 🔐 Безопасность
+### Безопасность
 - JWT-аутентификация  
 - Шифрование чувствительных данных  
 - Валидация входящих запросов  
 
 ---
-
-## 🚀 Запуск сервиса
+## API ендпоинты
+```proto
+service PaymentService {
+  // Создание нового платежа
+  rpc CreatePayment (CreatePaymentRequest) returns (CreatePaymentResponse);
+  
+  // Получение статуса платежа
+  rpc GetPayment (GetPaymentRequest) returns (GetPaymentResponse);
+  
+  // Получение полной информации о платеже
+  rpc GetPaymentByID (GetPaymentByIDRequest) returns (GetPaymentByIDResponse);
+  
+  // Возврат платежа
+  rpc RefundPayment (RefundPaymentRequest) returns (RefundPaymentResponse);
+  
+  // Получение истории платежей пользователя
+  rpc GetPaymentHistory (GetPaymentHistoryRequest) returns (GetPaymentHistoryResponse);
+  
+  // Получение ссылки на оплату
+  rpc GetPaymentLink (GetPaymentLinkRequest) returns (GetPaymentLinkResponse);
+  
+  // Получение активных платежей пользователя
+  rpc GetActivePayments (GetActivePaymentsRequest) returns (GetActivePaymentsResponse);
+}
+```
+---
+## Запуск сервиса
 
 ### Требования
 
 - Docker `20.10+`  
 - Docker Compose `1.29+`  
-- Go `1.20+` (для локальной разработки)
+- Go `1.24` (для локальной разработки)
 
 ### Быстрый старт
 
 ```bash
-docker compose -f deployments/docker-compose.yml --env-file local.env up -d
+docker-compose up -d
+```
+### Формат .env файла
+```.env
+SERVER_PORT=50051
+
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_SSL_MODE=disable
+POSTGRES_DB=payment
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=supersecretpassword123
+
+REDIS_URL=redis:6379
+
+FOREX_KEY=fx_demo_1234567890abcdef
+
+YOOMONEY_TOKEN=41001111223344556677889900aabbccddeeff
+YOOMONEY_CLIENT_ID=1234567890ABCDEF1234567890ABCDEF
+YOOMONEY_RECEIVER=4100111122223333
+```
