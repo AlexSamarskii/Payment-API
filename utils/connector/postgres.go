@@ -48,9 +48,23 @@ func MigratePostgres(ctx context.Context, pool *pgxpool.Pool, logger *zap.Logger
 	goose.SetBaseFS(migrations)
 	goose.SetDialect("postgres")
 	db := stdlib.OpenDBFromPool(pool)
+	if err := fs.WalkDir(migrations, "migrations", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			logger.Info("Found embedded file", zap.String("path", path))
+		}
+		return nil
+	}); err != nil {
+		logger.Error("Failed to walk embedded FS", zap.Error(err))
+	}
+
+	// Use the correct path prefix
 	if err := goose.Up(db, "migrations"); err != nil {
 		return fmt.Errorf("Migration failed: %v", err)
 	}
+
 	logger.Info("Successfully applied migrations")
 	return nil
 }

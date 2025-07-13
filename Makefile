@@ -1,4 +1,4 @@
-CONFIG_PATH = configs/local.env
+CONFIG_PATH = .env
 include ${CONFIG_PATH}
 
 run:
