@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
 	"net"
 
 	"paymentgo/internal/cmd/auth"
@@ -47,6 +48,18 @@ func main() {
 		}
 	}()
 
+	if err := fs.WalkDir(migrations, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			logger.Info("Embedded file found", zap.String("path", path))
+		}
+		return nil
+	}); err != nil {
+		logger.Error("Failed to walk embedded FS", zap.Error(err))
+	}
+
 	if err := db.MigratePostgres(ctx, dbConn, logger, migrations); err != nil {
 		logger.Fatal("Failed to apply migrations", zap.Error(err))
 	}
@@ -65,13 +78,13 @@ func main() {
 	paymentsQueue := db.NewPaymentsQueue()
 
 	converter := convert.NewForexClient(cfg)
-	paymentClient := yoomoney.NewYooMoneyClient(cfg)
+	paymentClient := yoomoney.New(cfg)
 
 	repo := postgres.NewPaymentRepository(dbConn, rdb, logger)
 	svc := service.NewPaymentService(repo, logger, converter, paymentClient, paymentsQueue)
 
-	demon := paymentsDemon.NewPaymentDemon(*svc, repo, paymentClient, paymentsQueue, logger, authClient)
-	go demon.Start(ctx)
+	demon := paymentsDemon.NewDaemon(*svc, repo, paymentClient, paymentsQueue, logger, authClient)
+	go demon.Run(ctx)
 
 	grpcServer := grpc.NewServer()
 	paymentHandler := handlers.NewPaymentHandler(svc, logger)
