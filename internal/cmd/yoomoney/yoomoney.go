@@ -14,201 +14,188 @@ import (
 	dto "paymentgo/internal/entity"
 )
 
-type YooMoneyClient struct {
-	Client     *http.Client
-	Token      string
-	ClientID   string
-	APIBaseURL string
+type Client struct {
+	httpClient *http.Client
+	authToken  string
+	clientID   string
+	baseURL    string
 }
 
-func NewYooMoneyClient(cfg *config.Config) *YooMoneyClient {
-	return &YooMoneyClient{
-		Client:     &http.Client{Timeout: 10 * time.Second},
-		Token:      cfg.Yoomoney.Token,
-		ClientID:   cfg.Yoomoney.ClientID,
-		APIBaseURL: "https://yoomoney.ru",
+func New(cfg *config.Config) *Client {
+	return &Client{
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+		authToken:  cfg.Yoomoney.Token,
+		clientID:   cfg.Yoomoney.ClientID,
+		baseURL:    "https://yoomoney.ru",
 	}
 }
 
-func (c *YooMoneyClient) CheckPaymentStatus(label string) (string, error) {
-	apiURL := fmt.Sprintf("%s/api/operation-history", c.APIBaseURL)
+// CheckTransactionStatus fetches the latest status of a payment operation based on its label.
+func (c *Client) CheckTransactionStatus(label string) (string, error) {
+	endpoint := fmt.Sprintf("%s/api/operation-history", c.baseURL)
 
-	params := url.Values{}
-	params.Add("label", label)
-	params.Add("records", "1")
-	params.Add("type", "deposition")
+	data := url.Values{}
+	data.Set("label", label)
+	data.Set("records", "1")
+	data.Set("type", "deposition")
 
-	req, err := http.NewRequest("POST", apiURL, strings.NewReader(params.Encode()))
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
-		return "error", fmt.Errorf("failed to create request: %v", err)
+		return "error", fmt.Errorf("could not build request: %w", err)
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", c.Token))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", "Bearer "+c.authToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.Client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "error", fmt.Errorf("failed to make API request: %v", err)
+		return "error", fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "error", fmt.Errorf("failed to read response body: %v", err)
+		return "error", fmt.Errorf("error reading response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "error", fmt.Errorf("API response status: %s, body: %s", resp.Status, string(body))
+		return "error", fmt.Errorf("unexpected status: %s — %s", resp.Status, string(raw))
 	}
 
-	var response struct {
+	var parsed struct {
 		Error      string `json:"error"`
 		Operations []struct {
 			Status string `json:"status"`
 		} `json:"operations"`
 	}
 
-	if err := json.Unmarshal(body, &response); err != nil {
-		return "error", fmt.Errorf("failed to decode response: %v", err)
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return "error", fmt.Errorf("invalid JSON structure: %w", err)
 	}
 
-	if response.Error != "" {
-		return "error", fmt.Errorf("API error: %s", response.Error)
+	if parsed.Error != "" {
+		return "error", fmt.Errorf("API error: %s", parsed.Error)
 	}
 
-	if len(response.Operations) == 0 {
-		return "error", fmt.Errorf("no operations found for label: %s", label)
+	if len(parsed.Operations) == 0 {
+		return "error", fmt.Errorf("no transactions found for label: %s", label)
 	}
 
-	status := response.Operations[0].Status
-
-	switch status {
+	switch parsed.Operations[0].Status {
 	case "success":
 		return "success", nil
 	case "refused":
-		return "failed", fmt.Errorf("payment refused")
+		return "failed", fmt.Errorf("transaction was refused")
 	case "in_progress":
 		return "pending", nil
 	default:
-		return "error", fmt.Errorf("unexpected payment status: %s", status)
+		return "error", fmt.Errorf("unrecognized status: %s", parsed.Operations[0].Status)
 	}
 }
 
-func (c *YooMoneyClient) CreateTransfer(payment *dto.Payment, receiver string) (string, error) {
+// InitiateTransfer starts a payment request to a specific recipient.
+func (c *Client) InitiateTransfer(payment *dto.Payment, recipient string) (string, error) {
 	if payment == nil {
-		return "", fmt.Errorf("payment information is required")
+		return "", fmt.Errorf("payment details cannot be nil")
 	}
-	if payment.ToUserID == "" {
-		return "", fmt.Errorf("recipient (to_user_id) is required")
-	}
-	if payment.Amount <= 0 {
-		return "", fmt.Errorf("amount must be greater than zero")
-	}
-	if payment.Currency == "" {
-		return "", fmt.Errorf("currency is required")
-	}
-	if payment.ID == "" {
-		return "", fmt.Errorf("payment ID is required")
+	if payment.ToUserID == "" || payment.ID == "" || payment.Currency == "" || payment.Amount <= 0 {
+		return "", fmt.Errorf("invalid payment fields: %+v", payment)
 	}
 
-	apiURL := fmt.Sprintf("%s/api/request-payment", c.APIBaseURL)
+	endpoint := fmt.Sprintf("%s/api/request-payment", c.baseURL)
 
-	params := url.Values{}
-	params.Add("pattern_id", "p2p")
-	params.Add("to", receiver)
-	params.Add("amount", strconv.FormatFloat(payment.Amount, 'f', 2, 64))
-	params.Add("comment", payment.ID)
-	params.Add("message", payment.ID)
-	params.Add("label", payment.ID)
-	params.Add("currency", payment.Currency)
+	payload := url.Values{}
+	payload.Set("pattern_id", "p2p")
+	payload.Set("to", recipient)
+	payload.Set("amount", strconv.FormatFloat(payment.Amount, 'f', 2, 64))
+	payload.Set("comment", payment.ID)
+	payload.Set("message", payment.ID)
+	payload.Set("label", payment.ID)
+	payload.Set("currency", payment.Currency)
 
-	reqBody := params.Encode()
-
-	req, err := http.NewRequest("POST", apiURL, strings.NewReader(reqBody))
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(payload.Encode()))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
+		return "", fmt.Errorf("could not create request: %w", err)
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", c.Token))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", "Bearer "+c.authToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.Client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to make API request: %v", err)
+		return "", fmt.Errorf("API call failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %v", err)
+		return "", fmt.Errorf("response read error: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API response status: %s, body: %s", resp.Status, string(body))
+		return "", fmt.Errorf("API returned %s: %s", resp.Status, string(raw))
 	}
 
 	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("failed to decode response: %v", err)
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return "", fmt.Errorf("response parsing error: %w", err)
 	}
 
 	status, ok := result["status"].(string)
 	if !ok {
-		return "", fmt.Errorf("invalid response structure: missing 'status' field")
+		return "", fmt.Errorf("response missing 'status'")
 	}
 
 	switch status {
 	case "success":
 		return "success", nil
 	case "refused":
-		errorMsg, _ := result["error"].(string)
-		return "failed", fmt.Errorf("transfer refused: %s", errorMsg)
+		msg, _ := result["error"].(string)
+		return "failed", fmt.Errorf("transfer refused: %s", msg)
 	default:
-		return "error", fmt.Errorf("unexpected transfer status: %s", status)
+		return "error", fmt.Errorf("unexpected status: %s", status)
 	}
 }
 
-func (c *YooMoneyClient) QuickPayment(receiver, targets, paymentType string, sum float64, formcomment, label, comment, successURL string) (string, error) {
-	if receiver == "" {
-		return "", fmt.Errorf("receiver is required")
-	}
-	if sum <= 0 {
-		return "", fmt.Errorf("sum must be greater than zero")
+// GenerateQuickPayURL constructs a quick payment URL with optional parameters.
+func (c *Client) GenerateQuickPayURL(receiver, target, paymentType string, amount float64, formComment, label, comment, redirectURL string) (string, error) {
+	if receiver == "" || amount <= 0 {
+		return "", fmt.Errorf("receiver and amount must be valid")
 	}
 
-	baseURL := "https://yoomoney.ru/quickpay/confirm?"
+	endpoint := "https://yoomoney.ru/quickpay/confirm?"
 
-	payload := url.Values{}
-	payload.Add("receiver", receiver)
-	payload.Add("quickpay-form", "shop")
-	payload.Add("paymentType", paymentType)
-	payload.Add("sum", strconv.FormatFloat(sum, 'f', 2, 64))
-	payload.Add("targets", targets)
+	params := url.Values{}
+	params.Set("receiver", receiver)
+	params.Set("quickpay-form", "shop")
+	params.Set("paymentType", paymentType)
+	params.Set("sum", strconv.FormatFloat(amount, 'f', 2, 64))
+	params.Set("targets", target)
 
-	if formcomment != "" {
-		payload.Add("formcomment", formcomment)
+	if formComment != "" {
+		params.Set("formcomment", formComment)
 	}
 	if label != "" {
-		payload.Add("label", label)
+		params.Set("label", label)
 	}
 	if comment != "" {
-		payload.Add("comment", comment)
+		params.Set("comment", comment)
 	}
-	if successURL != "" {
-		payload.Add("successURL", successURL)
+	if redirectURL != "" {
+		params.Set("successURL", redirectURL)
 	}
 
-	finalURL := baseURL + payload.Encode()
+	fullURL := endpoint + params.Encode()
 
-	resp, err := http.Get(finalURL)
+	resp, err := http.Get(fullURL)
 	if err != nil {
-		return "", fmt.Errorf("failed to validate URL: %v", err)
+		return "", fmt.Errorf("URL validation failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
-		return finalURL, nil
+		return fullURL, nil
 	}
 
-	return "", fmt.Errorf("validation failed with status: %s", resp.Status)
+	return "", fmt.Errorf("unexpected response status: %s", resp.Status)
 }

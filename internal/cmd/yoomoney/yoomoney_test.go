@@ -43,14 +43,14 @@ func TestCheckPaymentStatus_Success(t *testing.T) {
 	}`
 
 	mockClient := createMockHTTPClient2(mockResponse, http.StatusOK, nil)
-	client := &YooMoneyClient{
-		Client:     mockClient,
-		Token:      "mock-token",
-		ClientID:   "mock-client-id",
-		APIBaseURL: "https://mock-yoomoney.ru",
+	client := &Client{
+		httpClient: mockClient,
+		authToken:  "mock-token",
+		clientID:   "mock-client-id",
+		baseURL:    "https://mock-yoomoney.ru",
 	}
 
-	status, err := client.CheckPaymentStatus("valid-label")
+	status, err := client.CheckTransactionStatus("valid-label")
 	assert.NoError(t, err)
 	assert.Equal(t, "success", status)
 }
@@ -62,14 +62,14 @@ func TestCheckPaymentStatus_Failure(t *testing.T) {
 	}`
 
 	mockClient := createMockHTTPClient2(mockResponse, http.StatusOK, nil)
-	client := &YooMoneyClient{
-		Client:     mockClient,
-		Token:      "mock-token",
-		ClientID:   "mock-client-id",
-		APIBaseURL: "https://mock-yoomoney.ru",
+	client := &Client{
+		httpClient: mockClient,
+		authToken:  "mock-token",
+		clientID:   "mock-client-id",
+		baseURL:    "https://mock-yoomoney.ru",
 	}
 
-	status, err := client.CheckPaymentStatus("valid-label")
+	status, err := client.CheckTransactionStatus("valid-label")
 	assert.Error(t, err)
 	assert.Equal(t, "failed", status)
 	assert.Contains(t, err.Error(), "payment refused")
@@ -78,14 +78,14 @@ func TestCheckPaymentStatus_Failure(t *testing.T) {
 func TestCheckPaymentStatus_Error(t *testing.T) {
 	mockResponse := `{"error": "some-error"}`
 	mockClient := createMockHTTPClient2(mockResponse, http.StatusOK, nil)
-	client := &YooMoneyClient{
-		Client:     mockClient,
-		Token:      "mock-token",
-		ClientID:   "mock-client-id",
-		APIBaseURL: "https://mock-yoomoney.ru",
+	client := &Client{
+		httpClient: mockClient,
+		authToken:  "mock-token",
+		clientID:   "mock-client-id",
+		baseURL:    "https://mock-yoomoney.ru",
 	}
 
-	status, err := client.CheckPaymentStatus("valid-label")
+	status, err := client.CheckTransactionStatus("valid-label")
 	assert.Error(t, err)
 	assert.Equal(t, "error", status)
 	assert.Contains(t, err.Error(), "API error")
@@ -95,11 +95,11 @@ func TestCreateTransfer_Success(t *testing.T) {
 	mockResponse := `{"status": "success"}`
 	mockClient := createMockHTTPClient2(mockResponse, http.StatusOK, nil)
 
-	client := &YooMoneyClient{
-		Client:     mockClient,
-		Token:      "mock-token",
-		ClientID:   "mock-client-id",
-		APIBaseURL: "https://mock-yoomoney.ru",
+	client := &Client{
+		httpClient: mockClient,
+		authToken:  "mock-token",
+		clientID:   "mock-client-id",
+		baseURL:    "https://mock-yoomoney.ru",
 	}
 
 	payment := &dto.Payment{
@@ -109,14 +109,14 @@ func TestCreateTransfer_Success(t *testing.T) {
 		ToUserID: "recipient-id",
 	}
 
-	status, err := client.CreateTransfer(payment, "receiver-id")
+	status, err := client.InitiateTransfer(payment, "receiver-id")
 	assert.NoError(t, err)
 	assert.Equal(t, "success", status)
 }
 
 func TestCreateTransfer_InvalidPayment(t *testing.T) {
-	client := &YooMoneyClient{}
-	_, err := client.CreateTransfer(nil, "receiver-id")
+	client := &Client{}
+	_, err := client.InitiateTransfer(nil, "receiver-id")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "payment information is required")
 }
@@ -125,11 +125,11 @@ func TestCreateTransfer_Failure(t *testing.T) {
 	mockResponse := `{"status": "refused", "error": "insufficient funds"}`
 	mockClient := createMockHTTPClient2(mockResponse, http.StatusOK, nil)
 
-	client := &YooMoneyClient{
-		Client:     mockClient,
-		Token:      "mock-token",
-		ClientID:   "mock-client-id",
-		APIBaseURL: "https://mock-yoomoney.ru",
+	client := &Client{
+		httpClient: mockClient,
+		authToken:  "mock-token",
+		clientID:   "mock-client-id",
+		baseURL:    "https://mock-yoomoney.ru",
 	}
 
 	payment := &dto.Payment{
@@ -139,7 +139,7 @@ func TestCreateTransfer_Failure(t *testing.T) {
 		ToUserID: "recipient-id",
 	}
 
-	status, err := client.CreateTransfer(payment, "receiver-id")
+	status, err := client.InitiateTransfer(payment, "receiver-id")
 	assert.Error(t, err)
 	assert.Equal(t, "failed", status)
 	assert.Contains(t, err.Error(), "insufficient funds")
@@ -148,22 +148,22 @@ func TestCreateTransfer_Failure(t *testing.T) {
 func TestQuickPayment_Success(t *testing.T) {
 	mockClient := createMockHTTPClient2("", http.StatusOK, nil)
 
-	client := &YooMoneyClient{
-		Client:     mockClient,
-		Token:      "mock-token",
-		ClientID:   "mock-client-id",
-		APIBaseURL: "https://mock-yoomoney.ru",
+	client := &Client{
+		httpClient: mockClient,
+		authToken:  "mock-token",
+		clientID:   "mock-client-id",
+		baseURL:    "https://mock-yoomoney.ru",
 	}
 
-	url, err := client.QuickPayment("receiver-id", "targets", "PC", 100.0, "comment", "label", "additional-comment", "https://success.url")
+	url, err := client.GenerateQuickPayURL("receiver-id", "targets", "PC", 100.0, "comment", "label", "additional-comment", "https://success.url")
 	assert.NoError(t, err)
 	assert.Contains(t, url, "receiver=receiver-id")
 	assert.Contains(t, url, "sum=100.00")
 }
 
 func TestQuickPayment_InvalidInput(t *testing.T) {
-	client := &YooMoneyClient{}
-	_, err := client.QuickPayment("", "targets", "PC", 0, "", "", "", "")
+	client := &Client{}
+	_, err := client.GenerateQuickPayURL("", "targets", "PC", 0, "", "", "", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "receiver is required")
 }
